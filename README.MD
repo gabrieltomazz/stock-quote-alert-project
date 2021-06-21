@@ -1,2 +1,0 @@
-Projeto INOA
-Gabriel Lima
