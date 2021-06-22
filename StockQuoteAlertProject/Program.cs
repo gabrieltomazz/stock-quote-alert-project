@@ -6,7 +6,7 @@ using System.Text;
 using Newtonsoft.Json;
 using System.Net.Mail;
 using System.Threading;
-
+using Microsoft.Extensions.Configuration;
 
 namespace StockQuoteAlertProject
 {
@@ -14,8 +14,7 @@ namespace StockQuoteAlertProject
     {
         public static void Main(string[] args)
         {
-            // PETR4 28.95 26.90
-
+           
             // verify args
             if (args.Length == 3)
             {
@@ -87,29 +86,47 @@ namespace StockQuoteAlertProject
             StockData stockData = JsonConvert.DeserializeObject<StockData>(results);
             sr.Close();
 
-            decimal stockPrice = stockData.code == 200 && stockData.response.Count > 0 ? stockData.response[0].c : 0;
+            if (stockData.code != 200 && !stockData.status)
+            {
+                Console.WriteLine("Erro! Algo deu errado!");
+                Environment.Exit(0);
+            }
          
-            return stockPrice;
+            return stockData.response[0].c;
         }
+    }
+
+    public class MailConfiguration
+    {
+        public string Host { get; set; }
+        public int Port { get; set; }
+        public string Username { get; set; }
+        public string Password { get; set; }
+        public string From { get; set; }
+        public string Recipient { get; set; }
     }
 
     public class MailHelper
     {
-        // public static IConfiguration AppSetting { get; }
-
         public void MailSender(string content)
         {
-            //var builder = new ConfigurationBuilder()
-            //.AddJsonFile("appsettings.json");
-            //var config = builder.Build();
-            // var config = new ConfigurationBuilder().SetBasePath(Directory.GetCurrentDirectory()).AddJsonFile("appsettings.json", true).AddEnvironmentVariables().Build()
+            // Read file appsettings.json 
+            IConfiguration config = new ConfigurationBuilder()
+                    .SetBasePath(Directory.GetCurrentDirectory())
+                    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
+                    .Build();
+            // Get content file
+            var mailConfig = config.GetSection("Mail").Get<MailConfiguration>();
 
-            var client = new SmtpClient("smtp.mailtrap.io", 2525)
+            // build Smtp Connection
+            var client = new SmtpClient(mailConfig.Host, mailConfig.Port)
             {
-                Credentials = new NetworkCredential("80ce30703e957b", "784f1f672a1977"),
+                Credentials = new NetworkCredential(mailConfig.Username, mailConfig.Password),
                 EnableSsl = true
             };
-            client.Send("no-reply@stockalert.com", "gabrieltomazlima1@gmail.com", "Stock Quote Alert", content);
+
+            // Send email
+            client.Send(mailConfig.From, mailConfig.Recipient, "Stock Quote Alert", content);
             Console.WriteLine("Alerta enviado!");
         }
 
@@ -119,7 +136,7 @@ namespace StockQuoteAlertProject
     {
         public void run(AlertData alertData)
         {
-            // method once every 20 seconds.
+            // Method once every 20 seconds.
             Timer t = new Timer(TimerCallback, alertData, 1, 20000);
             Console.ReadLine();
 
@@ -130,7 +147,7 @@ namespace StockQuoteAlertProject
             // Call method to build alert
             BuildAlert(alertData);
 
-            // Force a garbage collection to occur for this demo.
+            // Force a garbage collection
             GC.Collect();
         }
 
@@ -143,7 +160,7 @@ namespace StockQuoteAlertProject
             MailHelper mail = new MailHelper();
             // init Api connection
             FCSConnection connect1 = new FCSConnection("it1lZ2rhzBCaMeV86Jfw4yFH");
-            // Get stockData from API 
+            // get stockData from API 
             decimal priceStock = connect1.GetStockPrice(alertData.stock);
 
             // verify alert
