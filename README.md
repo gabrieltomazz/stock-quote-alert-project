@@ -1,5 +1,5 @@
 # stock-quote-alert-project
-Desafio Inoa  C#
+Desafio  C#
 
 ### Configurar envio de Email
 - Insira as configurações do SMTP no arquivo appsettings.json na raiz do projeto.
